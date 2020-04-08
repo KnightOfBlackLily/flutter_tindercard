@@ -104,6 +104,11 @@ class _TinderSwapCardState extends State<TinderSwapCard>
       return Container();
     }
     int index = realIndex - _currentFront;
+    print('_currentFront = $_currentFront');
+    print('realIndex = $realIndex');
+    print('index1 = $index');
+    index = (realIndex + widget._totalNum - _currentFront) % widget._totalNum;
+    print('index2 = $index');
 
     if (index == widget._stackNum - 1) {
       return Align(
@@ -151,8 +156,13 @@ class _TinderSwapCardState extends State<TinderSwapCard>
 
   List<Widget> _buildCards(BuildContext context) {
     List<Widget> cards = new List();
+
+    /*
+    0, 1, 2
+    -1, 0, 1 => 0, 1, 9
+    */
     for (int i = _currentFront; i < _currentFront + widget._stackNum; i++) {
-      cards.add(_buildCard(context, i));
+      cards.add(_buildCard(context, i % widget._totalNum));
     }
 
     cards.add(new SizedBox.expand(
@@ -249,7 +259,11 @@ class _TinderSwapCardState extends State<TinderSwapCard>
 
   changeCardOrder() {
     setState(() {
-      _currentFront--;
+      if (_currentFront == 0) {
+        _currentFront = widget._totalNum - 1;
+      } else {
+        _currentFront--;
+      }
       frontCardAlign = _cardAligns[widget._stackNum - 1];
     });
   }
