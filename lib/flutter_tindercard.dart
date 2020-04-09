@@ -234,7 +234,6 @@ class _TinderSwapCardState extends State<TinderSwapCard>
           }
         } else {
           print('newIndex: $newIndex');
-          widget.cardController.currentIndex = widget._totalNum - (newIndex + widget._stackNum - 1) % widget._totalNum - 1;
           if (widget.swipeCompleteCallback != null) {
             widget.swipeCompleteCallback(
                 frontCardAlign.x < 0
@@ -266,6 +265,7 @@ class _TinderSwapCardState extends State<TinderSwapCard>
 
   changeCardOrder() {
     setState(() {
+      widget.cardController.currentIndex = widget._totalNum - (newIndex + widget._stackNum - 1) % widget._totalNum - 1;
       _currentFront = newIndex;
       frontCardAlign = _cardAligns[widget._stackNum - 1];
     });
