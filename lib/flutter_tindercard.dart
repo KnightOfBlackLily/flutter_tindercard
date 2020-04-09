@@ -1,5 +1,7 @@
 library flutter_tindercard;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'dart:math';
 
@@ -11,12 +13,14 @@ class TinderSwapCard extends StatefulWidget {
   CardBuilder _cardBuilder;
   int _totalNum;
   int _stackNum;
+  bool loop;
   int _animDuration;
   double _swipeEdge;
   bool _allowVerticalMovement;
   CardSwipeCompleteCallback swipeCompleteCallback;
   CardDragUpdateCallback swipeUpdateCallback;
   CardController cardController;
+  Future<int> Function() fetchNextPart;
 
 //  double _maxWidth;
 //  double _minWidth;
@@ -40,6 +44,8 @@ class TinderSwapCard extends StatefulWidget {
       double swipeEdge = 3.0,
       double maxWidth,
       double maxHeight,
+      this.loop = false,
+      this.fetchNextPart,
       double minWidth,
       double minHeight,
       bool allowVerticalMovement = true,
@@ -94,17 +100,21 @@ class TinderSwapCard extends StatefulWidget {
 
 class _TinderSwapCardState extends State<TinderSwapCard>
     with SingleTickerProviderStateMixin {
+  bool isAllLoaded = false;
   Alignment frontCardAlign;
   AnimationController _animationController;
   int _currentFront;
+  int _totalNum;
+  bool get _loop => isAllLoaded && widget.loop;
   static int _trigger; // 0: no trigger; -1: trigger left; 1: trigger right
 
   Widget _buildCard(BuildContext context, int realIndex) {
     if (realIndex < 0) {
       return Container();
     }
-    int index = realIndex - _currentFront;
-    index = (realIndex + widget._totalNum - _currentFront) % widget._totalNum;
+    int index = _loop
+        ? (realIndex + _totalNum - _currentFront) % _totalNum
+        : realIndex - _currentFront;
 
     if (index == widget._stackNum - 1) {
       return Align(
@@ -125,8 +135,7 @@ class _TinderSwapCardState extends State<TinderSwapCard>
                     : frontCardAlign.x),
             child: new SizedBox.fromSize(
               size: _cardSizes[index],
-              child: widget._cardBuilder(
-                  context, widget._totalNum - realIndex - 1),
+              child: widget._cardBuilder(context, _totalNum - realIndex - 1),
             )),
       );
     }
@@ -145,7 +154,7 @@ class _TinderSwapCardState extends State<TinderSwapCard>
                     _cardSizes[index], _cardSizes[index + 1])
                 .value
             : _cardSizes[index],
-        child: widget._cardBuilder(context, widget._totalNum - realIndex - 1),
+        child: widget._cardBuilder(context, _totalNum - realIndex - 1),
       ),
     );
   }
@@ -158,7 +167,8 @@ class _TinderSwapCardState extends State<TinderSwapCard>
     -1, 0, 1 => 0, 1, 9
     */
     for (int i = _currentFront; i < _currentFront + widget._stackNum; i++) {
-      cards.add(_buildCard(context, i % widget._totalNum));
+      var index = _loop ? i % _totalNum : i;
+      cards.add(_buildCard(context, index));
     }
 
     cards.add(new SizedBox.expand(
@@ -199,7 +209,7 @@ class _TinderSwapCardState extends State<TinderSwapCard>
 
   animateCards(int trigger) {
     if (_animationController.isAnimating ||
-        _currentFront + widget._stackNum == 0) {
+        _currentFront + widget._stackNum == (isAllLoaded ? 0 : 1)) {
       return;
     }
     _trigger = trigger;
@@ -215,7 +225,9 @@ class _TinderSwapCardState extends State<TinderSwapCard>
   @override
   void initState() {
     super.initState();
-    _currentFront = widget._totalNum - widget._stackNum;
+    isAllLoaded = widget.fetchNextPart == null;
+    _totalNum = widget._totalNum + (isAllLoaded ? 0 : 1);
+    _currentFront = _totalNum - widget._stackNum;
     widget.cardController.currentIndex = 0;
 
     frontCardAlign = _cardAligns[_cardAligns.length - 1];
@@ -223,7 +235,7 @@ class _TinderSwapCardState extends State<TinderSwapCard>
         vsync: this, duration: Duration(milliseconds: widget._animDuration));
     _animationController.addListener(() => setState(() {}));
     _animationController.addStatusListener((AnimationStatus status) {
-      int index = widget._totalNum - widget._stackNum - _currentFront;
+      int index = _totalNum - widget._stackNum - _currentFront;
       if (status == AnimationStatus.completed) {
         if (frontCardAlign.x < widget._swipeEdge &&
             frontCardAlign.x > -widget._swipeEdge) {
@@ -256,8 +268,8 @@ class _TinderSwapCardState extends State<TinderSwapCard>
   }
 
   int get newIndex {
-    if (_currentFront == 0) {
-      return widget._totalNum - 1;
+    if (_currentFront == 0 && _loop) {
+      return _totalNum - 1;
     } else {
       return _currentFront - 1;
     }
@@ -265,10 +277,27 @@ class _TinderSwapCardState extends State<TinderSwapCard>
 
   changeCardOrder() {
     setState(() {
-      widget.cardController.currentIndex = widget._totalNum - (newIndex + widget._stackNum - 1) % widget._totalNum - 1;
+      widget.cardController.currentIndex = _loop
+          ? _totalNum - (newIndex + widget._stackNum - 1) % _totalNum - 1
+          : _totalNum - (newIndex + widget._stackNum);
       _currentFront = newIndex;
       frontCardAlign = _cardAligns[widget._stackNum - 1];
     });
+    if (!isAllLoaded && _currentFront + widget._stackNum == 1) {
+      fetchNextPart();
+    }
+  }
+
+  fetchNextPart() async {
+    var addNum = await widget.fetchNextPart();
+    _totalNum = addNum == 0 ? _totalNum - 1 : _totalNum + addNum;
+    isAllLoaded = addNum == 0;
+    if (_loop) {
+      _currentFront = _totalNum - widget._stackNum;
+    } else {
+      _currentFront += addNum == 0 ? -1 : addNum;
+    }
+    setState(() {});
   }
 }
 
