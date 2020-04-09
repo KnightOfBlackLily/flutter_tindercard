@@ -104,11 +104,7 @@ class _TinderSwapCardState extends State<TinderSwapCard>
       return Container();
     }
     int index = realIndex - _currentFront;
-    print('_currentFront = $_currentFront');
-    print('realIndex = $realIndex');
-    print('index1 = $index');
     index = (realIndex + widget._totalNum - _currentFront) % widget._totalNum;
-    print('index2 = $index');
 
     if (index == widget._stackNum - 1) {
       return Align(
@@ -220,6 +216,7 @@ class _TinderSwapCardState extends State<TinderSwapCard>
   void initState() {
     super.initState();
     _currentFront = widget._totalNum - widget._stackNum;
+    widget.cardController.currentIndex = 0;
 
     frontCardAlign = _cardAligns[_cardAligns.length - 1];
     _animationController = new AnimationController(
@@ -236,6 +233,8 @@ class _TinderSwapCardState extends State<TinderSwapCard>
             widget.swipeCompleteCallback(CardSwipeOrientation.RECOVER, index);
           }
         } else {
+          print('newIndex: $newIndex');
+          widget.cardController.currentIndex = widget._totalNum - (newIndex + widget._stackNum - 1) % widget._totalNum - 1;
           if (widget.swipeCompleteCallback != null) {
             widget.swipeCompleteCallback(
                 frontCardAlign.x < 0
@@ -257,13 +256,17 @@ class _TinderSwapCardState extends State<TinderSwapCard>
     return Stack(children: _buildCards(context));
   }
 
+  int get newIndex {
+    if (_currentFront == 0) {
+      return widget._totalNum - 1;
+    } else {
+      return _currentFront - 1;
+    }
+  }
+
   changeCardOrder() {
     setState(() {
-      if (_currentFront == 0) {
-        _currentFront = widget._totalNum - 1;
-      } else {
-        _currentFront--;
-      }
+      _currentFront = newIndex;
       frontCardAlign = _cardAligns[widget._stackNum - 1];
     });
   }
@@ -330,6 +333,7 @@ class CardAnimation {
 typedef TriggerListener = void Function(int trigger);
 
 class CardController {
+  int currentIndex;
   TriggerListener _listener;
 
   void triggerLeft() {
